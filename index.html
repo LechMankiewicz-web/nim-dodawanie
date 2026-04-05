@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyścig do Celu: Got It!</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --primary-color: #4f46e5;
+            --secondary-color: #10b981;
+            --ai-color: #f59e0b;
+            --text-dark: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            width: 100%;
+            max-width: 450px;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .setup-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .input-group { flex: 1; text-align: left; }
+        
+        label { font-size: 0.8em; font-weight: bold; color: #64748b; text-transform: uppercase; }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        .progress-container {
+            height: 24px;
+            background: #e2e8f0;
+            border-radius: 12px;
+            margin: 25px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transition: width 0.5s ease;
+        }
+
+        .current-sum-display {
+            font-size: 4em;
+            font-weight: 800;
+            margin: 10px 0;
+            color: var(--primary-color);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-add { background-color: var(--secondary-color); color: white; font-size: 1.2em; }
+        .btn-start { background-color: var(--primary-color); color: white; width: 100%; font-size: 1.1em; }
+        .btn-reset { background: #94a3b8; color: white; width: 100%; margin-top: 20px; }
+
+        button:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        #status { font-size: 1.2em; font-weight: 600; margin-bottom: 10px; min-height: 1.5em; }
+        .hidden { display: none; }
+        
+        .history { font-size: 0.9em; color: #64748b; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2 id="title">🏁 Wyścig do 23</h2>
+
+    <div id="setup-section">
+        <div class="setup-row">
+            <div class="input-group">
+                <label>Cel (np. 23)</label>
+                <input type="number" id="goal" value="23">
+            </div>
+            <div class="input-group">
+                <label>Dodawaj 1 do...</label>
+                <input type="number" id="max-add" value="4">
+            </div>
+        </div>
+        <div class="input-group" style="margin-bottom: 20px;">
+            <label>Przeciwnik</label>
+            <select id="game-mode">
+                <option value="ai">Komputer (AI)</option>
+                <option value="p2">Drugi Gracz</option>
+            </select>
+        </div>
+        <button class="btn-start" onclick="startGame()">START</button>
+    </div>
+
+    <div id="game-section" class="hidden">
+        <div id="status">Zaczyna Gracz 1</div>
+        
+        <div class="current-sum-display" id="sum-val">0</div>
+        
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+
+        <div id="controls" class="controls"></div>
+        <div id="history" class="history">Ruchy: </div>
+        
+        <button class="btn-reset" onclick="resetGame()">Od początku</button>
+    </div>
+</div>
+
+<script>
+    let currentSum = 0;
+    let goal = 23;
+    let maxAdd = 4;
+    let currentPlayer = 1;
+    let isAiMode = true;
+    let historyMoves = [];
+
+    function startGame() {
+        goal = parseInt(document.getElementById('goal').value) || 23;
+        maxAdd = parseInt(document.getElementById('max-add').value) || 4;
+        isAiMode = document.getElementById('game-mode').value === 'ai';
+        currentSum = 0;
+        currentPlayer = 1;
+        historyMoves = [];
+
+        document.getElementById('title').innerText = `Cel: ${goal}`;
+        document.getElementById('setup-section').classList.add('hidden');
+        document.getElementById('game-section').classList.remove('hidden');
+        
+        createButtons();
+        updateUI();
+    }
+
+    function createButtons() {
+        const controls = document.getElementById('controls');
+        controls.innerHTML = '';
+        for (let i = 1; i <= maxAdd; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'btn-add';
+            btn.innerText = `+${i}`;
+            btn.onclick = () => makeMove(i);
+            controls.appendChild(btn);
+        }
+    }
+
+    function makeMove(n) {
+        if (currentSum + n > goal) return;
+        
+        currentSum += n;
+        historyMoves.push(n);
+        
+        if (currentSum === goal) {
+            endGame();
+            return;
+        }
+
+        currentPlayer = (currentPlayer === 1) ? 2 : 1;
+        updateUI();
+
+        if (isAiMode && currentPlayer === 2) {
+            lockButtons(true);
+            setTimeout(computerTurn, 800);
+        } else {
+            lockButtons(false);
+        }
+    }
+
+    function computerTurn() {
+        const factor = maxAdd + 1;
+        // Strategia: AI chce wylądować na liczbach: cel - k*(maxAdd+1)
+        // Czyli: chcemy, aby (goal - currentSum) % factor było równe 0 po naszym ruchu.
+        // Więc musimy dodać tyle, żeby uzupełnić aktualną resztę do wielokrotności.
+        
+        let targetMod = goal % factor;
+        let currentMod = currentSum % factor;
+        
+        let add = (targetMod - currentMod + factor) % factor;
+        
+        // Jeśli jesteśmy na pozycji przegrywającej (add == 0), mącimy (losujemy)
+        if (add === 0) {
+            add = Math.floor(Math.random() * maxAdd) + 1;
+        }
+        
+        // Nie możemy przekroczyć celu
+        if (currentSum + add > goal) {
+            add = goal - currentSum;
+        }
+
+        makeMove(add);
+    }
+
+    function updateUI() {
+        document.getElementById('sum-val').innerText = currentSum;
+        const progress = (currentSum / goal) * 100;
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+        
+        const status = document.getElementById('status');
+        const pName = (currentPlayer === 2 && isAiMode) ? "Komputer" : `Gracz ${currentPlayer}`;
+        status.innerText = `Tura: ${pName}`;
+        status.style.color = (currentPlayer === 1) ? '#4f46e5' : '#f59e0b';
+
+        document.getElementById('history').innerText = `Ruchy: ${historyMoves.join(', ')}`;
+
+        const buttons = document.querySelectorAll('.btn-add');
+        buttons.forEach((btn, idx) => {
+            const val = idx + 1;
+            btn.disabled = (currentSum + val > goal);
+        });
+    }
+
+    function lockButtons(lock) {
+        const buttons = document.querySelectorAll('.btn-add');
+        buttons.forEach(btn => btn.disabled = lock);
+    }
+
+    function endGame() {
+        updateUI();
+        const pName = (currentPlayer === 2 && isAiMode) ? "KOMPUTER" : `GRACZ ${currentPlayer}`;
+        document.getElementById('status').innerHTML = `🎉 ${pName} osiągnął ${goal}! WYGRANA!`;
+        document.getElementById('controls').innerHTML = '';
+    }
+
+    function resetGame() {
+        document.getElementById('setup-section').classList.remove('hidden');
+        document.getElementById('game-section').classList.add('hidden');
+    }
+</script>
+
+</body>
+</html>
