@@ -1,1 +1,1 @@
-Simple NIM game for my students
+Simple NIM game for my students. Created by Gemini.
